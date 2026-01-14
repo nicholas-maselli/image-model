@@ -1,0 +1,56 @@
+# ---- OS / Editor ----
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+.vscode/
+.idea/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual envs
+.venv/
+venv/
+ENV/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ---- Data (keep only README stubs) ----
+data/**
+!data/README.md
+
+# ---- Model artifacts / checkpoints (keep only README stubs) ----
+models/**
+!models/README.md
+
+# ---- Runs / logs (keep only README stubs) ----
+runs/**
+!runs/README.md
+
+# Common experiment trackers
+wandb/
+mlruns/
+lightning_logs/
+tensorboard/
+
+# ---- Builds / packaging ----
+build/
+dist/
+*.egg-info/
+
+# ---- Secrets ----
+.env
+*.key
+*.pem
+credentials*.json
