@@ -9,3 +9,12 @@ Vision model repo organized for learning + iteration.
 -   `data/`: datasets (ignored by git; keep docs in `data/README.md`)
 -   `models/`: checkpoints/weights (ignored by git; keep docs in `models/README.md`)
 -   `tests/`: unit/integration tests for `src/`
+
+## Running the Code
+
+# Training
+
+uv run python src/scripts/train/train.py \
+ --dataset cifar10 \
+ --model micro \
+ --steps 10000
