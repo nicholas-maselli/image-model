@@ -11,7 +11,7 @@ def conv_bn_relu(in_ch: int, out_ch: int) -> nn.Sequential:
     )
 
 
-class StandardCNN(nn.Module):
+class TestCandidate(nn.Module):
     """
     Standard-sized CNN for CIFAR-10.
 

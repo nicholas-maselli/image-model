@@ -19,6 +19,6 @@ uv run python src/scripts/train/train.py \
  --model micro \
  --steps 10000
 
- # Training (No GPU Pre Evaluation)
+# Training (No GPU Pre Evaluation)
 
- uv run python src/scripts/train/train.py --dataset cifar10 --model test_candidate --steps 30 --log-freq 5 --eval-freq 0 --save-freq 0
+uv run python src/scripts/train/train.py --dataset cifar10 --model test_candidate --steps 10000
