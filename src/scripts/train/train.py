@@ -16,7 +16,7 @@ import torch
 import torch.nn.functional as F
 
 from data import Cifar10DataConfig, make_cifar10_loaders
-from models import MicroCNN, MilliCNN, StandardCNN, KiloCNN, TestCandidate
+from models import MicroCNN, MilliCNN, StandardCNN, KiloCNN, TestCandidate0, TestCandidate1
 
 
 # -------------------------
@@ -42,7 +42,8 @@ MODELS: dict[str, type[torch.nn.Module]] = {
     "milli": MilliCNN,
     "standard": StandardCNN,
     "kilo": KiloCNN,
-    "test_candidate": TestCandidate,
+    "test_candidate_cuda0": TestCandidate0,
+    "test_candidate_cuda1": TestCandidate1,
 }
 
 

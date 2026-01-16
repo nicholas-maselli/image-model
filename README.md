@@ -21,4 +21,6 @@ uv run python src/scripts/train/train.py \
 
 # Training (No GPU Pre Evaluation)
 
-uv run python src/scripts/train/train.py --dataset cifar10 --model test_candidate --steps 10000
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/train.py --dataset cifar10 --model test_candidate --steps 10000
+
+CUDA_VISIBLE_DEVICES=1 uv run python src/scripts/train/train.py --dataset cifar10 --model test_candidate --steps 10000

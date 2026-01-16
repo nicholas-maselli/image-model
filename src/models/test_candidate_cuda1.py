@@ -6,7 +6,7 @@ import torch.nn.functional as F
 def conv_bn_relu(in_ch: int, out_ch: int) -> nn.Sequential:
     return nn.Sequential(
         nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1, bias=False),
-        nn.BatchNorm2d(out_ch),
+        nn.GroupNorm(8, out_ch), # Still (B, C, H, W) → (B, C, H, W) # Batchnorm for deeper networks
         nn.ReLU(inplace=True),
     )
 
@@ -65,3 +65,4 @@ class TestCandidate(nn.Module):
         x = self.stage3(x)             # 8->8
         x = x.mean(dim=(2, 3))         # GAP -> (B, c3)
         return self.fc(x)
+
