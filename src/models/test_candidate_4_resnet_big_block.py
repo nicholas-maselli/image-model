@@ -19,7 +19,7 @@ class BasicBlock(nn.Module):
   def __init__(self, in_ch: int, out_ch: int, stride: int = 1):
     super().__init__()
     self.conv1 = nn.Conv2d(in_ch, out_ch, kernel_size=3, stride = stride, padding = 1, bias = False)
-    self.batchnorm1 = nn.BatchNorm2d(in_ch)
+    self.batchnorm1 = nn.BatchNorm2d(out_ch)
     self.conv2 = nn.Conv2d(out_ch, out_ch, kernel_size=3, stride = 1, padding = 1, bias = False)
     self.batchnorm2 = nn.BatchNorm2d(out_ch)
     
@@ -71,7 +71,7 @@ class TestCandidate0(nn.Module):
           BasicBlock(c3,c3,1)
         )
 
-        # self.dropout = nn.Dropout(p=0.1)
+        self.dropout = nn.Dropout(p=0.1)
         self.fc = nn.Linear(c3, num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -80,5 +80,5 @@ class TestCandidate0(nn.Module):
         x = self.stage2(x)
         x = self.stage3(x)
         x = x.mean(dim=(2, 3))
-        # x = self.dropout(x)
+        x = self.dropout(x)
         return self.fc(x)
