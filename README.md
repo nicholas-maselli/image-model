@@ -65,5 +65,8 @@ final eval step 50000  test_loss=0.4776 test_acc=0.9236  best_acc=0.9276  time=0
 
 # TestCandidatePreActivation
 CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/train.py --dataset cifar10 --model test_candidate_cuda0 --steps 50000
-eval step 50000  test_loss=0.5593 test_acc=0.9166  best_acc=0.9290  time=0.7s
-model=test_candidate_cuda0 final eval step 50000  test_loss=0.5593 test_acc=0.9166  best_acc=0.9290  time=0.7s
+eval step 50000  test_loss=0.6039 test_acc=0.9179  best_acc=0.9297  time=0.7s
+model=test_candidate_cuda0 final eval step 50000  test_loss=0.6039 test_acc=0.9179  best_acc=0.9297  time=0.7s
+
+# Training Update Pre Activation
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/train.py --dataset cifar10 --model test_candidate_cuda0 --steps 50000
