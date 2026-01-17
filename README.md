@@ -58,3 +58,10 @@ final eval step 50000  test_loss=0.5043 test_acc=0.8815  best_acc=0.8885  time=0
 # TestCandidateBasicBlockRestnet
 CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/train.py --dataset cifar10 --model test_candidate_cuda0 --steps 50000
 final eval step 50000  test_loss=0.5488 test_acc=0.8991  best_acc=0.8991  time=0.5s
+
+# TestCandidateBigBasicBlockRestnet
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/train.py --dataset cifar10 --model test_candidate_cuda0 --steps 50000
+final eval step 50000  test_loss=0.4776 test_acc=0.9236  best_acc=0.9276  time=0.7s
+
+# TestCandidatePreActivation
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/train.py --dataset cifar10 --model test_candidate_cuda0 --steps 50000

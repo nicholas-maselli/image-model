@@ -71,7 +71,7 @@ class TestCandidate0(nn.Module):
           BasicBlock(c3,c3,1)
         )
 
-        # self.dropout = nn.Dropout(p=0.1)
+        self.dropout = nn.Dropout(p=0.1)
         self.fc = nn.Linear(c3, num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -80,5 +80,5 @@ class TestCandidate0(nn.Module):
         x = self.stage2(x)
         x = self.stage3(x)
         x = x.mean(dim=(2, 3))
-        # x = self.dropout(x)
+        x = self.dropout(x)
         return self.fc(x)
