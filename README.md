@@ -74,9 +74,12 @@ eval step 50000  test_loss=0.2309 test_acc=0.9549  best_acc=0.9565  time=0.7s
 model=test_candidate_cuda0 final eval step 50000  lr=0.000000 test_loss=0.2309 test_acc=0.9549  best_acc=0.9565  time=0.7s
 
 # Training SGD And other improvements 100k
-CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/train.py \
-  --dataset cifar10 --model test_candidate_cuda0 \
-  --steps 200000 --opt sgd --nesterov \
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/advanced_train.py \
+  --dataset cifar10 
+  --model test_candidate_cuda0 \
+  --steps 200000 \
+  --opt sgd \
+  --nesterov \
   --warmup-steps 2000 \
   --mixup-alpha 0.2 --cutmix-alpha 1.0 \
   --ema-decay 0.999 \
@@ -86,4 +89,10 @@ CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/advanced_train.py \
   --model test_candidate_cuda0 \
   --dataset cifar10 \
   --steps 200000 \
-  --resume models/test_candidate_cuda0_cifar10/checkpoints/step_80000.pt
+  --resume models/test_candidate_cuda0_cifar10/checkpoints/step_80000.pt \
+  --opt sgd \
+  --nesterov \
+  --warmup-steps 2000 \
+  --mixup-alpha 0.2 --cutmix-alpha 1.0 \
+  --ema-decay 0.999 \
+  --label-smoothing 0.0
