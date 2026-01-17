@@ -95,12 +95,18 @@ class TrainConfig:
     # Model Parameters
     steps: int = 100_000
     batch_size: int = 128
-    lr: float = 3e-4
-    weight_decay: float = 1e-4
+    lr: float = 0.1
+    weight_decay: float = 5e-4
     num_workers: int = 0
     seed: int = 1337
     amp: bool = False
     data_root: str = "data/raw"
+
+    # Optimizer Parameters
+    opt: str = "sgd"
+    momentum: float = 0.9
+    nesterov: bool = False
+    sched: str = "cosine"
 
 
 def set_seed(seed: int) -> None:
@@ -182,8 +188,8 @@ def main() -> None:
     p.add_argument("--eval-freq", type=int, default=1_000, help="Evaluate on test set every N steps")
     p.add_argument("--log-freq", type=int, default=100, help="Log running train stats every N steps")
     p.add_argument("--batch-size", type=int, default=128)
-    p.add_argument("--lr", type=float, default=3e-4)
-    p.add_argument("--weight-decay", type=float, default=1e-4)
+    p.add_argument("--lr", type=float, default=0.1)
+    p.add_argument("--weight-decay", type=float, default=5e-4)
     p.add_argument("--num-workers", type=int, default=0)
     p.add_argument("--seed", type=int, default=1337)
 
@@ -193,6 +199,11 @@ def main() -> None:
     p.add_argument("--no-amp", action="store_true")
     p.add_argument("--resume", type=str, default=None, help="Path to a checkpoint .pt (e.g. models/<exp>/last.pt)")
     p.add_argument("--device", type=str, default="auto", choices=["auto", "cpu", "cuda"])
+
+    p.add_argument("--opt", type=str, default="sgd", choices=["sgd", "adamw"])
+    p.add_argument("--momentum", type=float, default=0.9)
+    p.add_argument("--nesterov", action="store_true")
+    p.add_argument("--sched", type=str, default="cosine", choices=["none", "cosine", "multistep"])
 
     args = p.parse_args()
 
@@ -232,6 +243,10 @@ def main() -> None:
         seed=args.seed,
         amp=not args.no_amp,
         data_root=args.data_root,
+        opt=args.opt,
+        momentum=args.momentum,
+        nesterov=args.nesterov,
+        sched=args.sched,
     )
 
     print(
@@ -246,7 +261,31 @@ def main() -> None:
     train_loader, test_loader = DATASETS[args.dataset](args)
     model_factory = resolve_model_factory(args.model)
     model = model_factory().to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    if args.opt == "sgd":
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr=args.lr,
+            momentum=args.momentum,
+            weight_decay=args.weight_decay,
+            nesterov=args.nesterov,
+        )
+    else:
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+
+    steps_per_epoch = len(train_loader)
+    total_steps = args.steps
+
+    if args.sched == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps)
+    elif args.sched == "multistep":
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer,
+            milestones=[int(total_steps * 0.6), int(total_steps * 0.8)],
+            gamma=0.2,
+        )
+    else:
+        scheduler = None
+
 
     out_dir = Path("models") / exp_name
     global_step = 0
@@ -293,11 +332,14 @@ def main() -> None:
 
         with torch.amp.autocast(device_type=device.type, enabled=amp_enabled):
             logits = model(x)
-            loss = F.cross_entropy(logits, y)
+            loss = F.cross_entropy(logits, y, label_smoothing=0.1)
 
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
+
+        if scheduler is not None:
+            scheduler.step()
 
         bs = x.size(0)
         win_total += bs
@@ -350,9 +392,12 @@ def main() -> None:
     dt = time.time() - t0
     if final_test_acc > best_acc:
         best_acc = final_test_acc
+
+    lr = optimizer.param_groups[0]['lr']
     print(
         f"model={cfg.model} "
         f"final eval step {global_step}  "
+        f"lr={lr:.6f} "
         f"test_loss={final_test_loss:.4f} test_acc={final_test_acc:.4f}  "
         f"best_acc={best_acc:.4f}  time={dt:.1f}s"
     )
