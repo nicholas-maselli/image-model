@@ -42,8 +42,7 @@ MODELS: dict[str, type[torch.nn.Module]] = {
     "milli": MilliCNN,
     "standard": StandardCNN,
     "kilo": KiloCNN,
-    "test_candidate_cuda0": TestCandidate0,
-    "test_candidate_cuda1": TestCandidate1,
+    "test_candidate_cuda0": TestCandidate0
 }
 
 

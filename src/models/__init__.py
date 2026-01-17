@@ -3,6 +3,5 @@ from .milli_cnn import MilliCNN
 from .kilo_cnn import KiloCNN
 from .standard_cnn import StandardCNN
 from .test_candidate_cuda0 import TestCandidate0
-from .test_candidate_cuda1 import TestCandidate1
 
-__all__ = ["MicroCNN", "MilliCNN", "StandardCNN", "KiloCNN", "TestCandidate0", "TestCandidate1"]
+__all__ = ["MicroCNN", "MilliCNN", "StandardCNN", "KiloCNN", "TestCandidate0"]
