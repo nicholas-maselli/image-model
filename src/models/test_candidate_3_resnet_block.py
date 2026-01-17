@@ -54,24 +54,20 @@ class TestCandidate0(nn.Module):
         )
 
         self.stage1 = nn.Sequential(
-          BasicBlock(c1,c1,1), 
-          BasicBlock(c1,c1,1), 
-          BasicBlock(c1,c1,1)
+            BasicBlock(c1, c1, stride=1),
+            BasicBlock(c1, c1, stride=1),
         )
 
         self.stage2 = nn.Sequential(
-          BasicBlock(c1,c2,2), 
-          BasicBlock(c2,c2,1), 
-          BasicBlock(c2,c2,1)
+            BasicBlock(c1, c2, stride=2),
+            BasicBlock(c2, c2, stride=1),
         )
 
         self.stage3 = nn.Sequential(
-          BasicBlock(c2,c3,2), 
-          BasicBlock(c3,c3,1), 
-          BasicBlock(c3,c3,1)
+            BasicBlock(c2, c3, stride=2),
+            BasicBlock(c3, c3, stride=1),
         )
 
-        self.dropout = nn.Dropout(p=0.1)
         self.fc = nn.Linear(c3, num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -80,5 +76,4 @@ class TestCandidate0(nn.Module):
         x = self.stage2(x)
         x = self.stage3(x)
         x = x.mean(dim=(2, 3))
-        x = self.dropout(x)
         return self.fc(x)
