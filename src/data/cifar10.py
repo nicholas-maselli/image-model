@@ -22,8 +22,13 @@ def make_cifar10_loaders(cfg: Cifar10DataConfig) -> tuple[DataLoader, DataLoader
         [
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
+            # Stronger augmentation for higher CIFAR-10 accuracy.
+            # If you want to ablate, remove RandAugment and/or RandomErasing first.
+            transforms.RandAugment(num_ops=2, magnitude=9),
             transforms.ToTensor(),
             transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
+            # Cutout-like regularization (applied after normalization; torchvision supports this).
+            transforms.RandomErasing(p=0.25, scale=(0.02, 0.2), ratio=(0.3, 3.3), value="random"),
         ]
     )
     test_tf = transforms.Compose(

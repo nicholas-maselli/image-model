@@ -18,29 +18,28 @@ class BasicBlock(nn.Module):
   """
   def __init__(self, in_ch: int, out_ch: int, stride: int = 1):
     super().__init__()
-    self.conv1 = nn.Conv2d(in_ch, out_ch, kernel_size=3, stride = stride, padding = 1, bias = False)
     self.batchnorm1 = nn.BatchNorm2d(in_ch)
-    self.conv2 = nn.Conv2d(out_ch, out_ch, kernel_size=3, stride = 1, padding = 1, bias = False)
+    self.conv1 = nn.Conv2d(in_ch, out_ch, kernel_size=3, stride=stride, padding=1, bias=False)
     self.batchnorm2 = nn.BatchNorm2d(out_ch)
+    self.conv2 = nn.Conv2d(out_ch, out_ch, kernel_size=3, stride=1, padding=1, bias=False)
     
     if stride != 1 or in_ch != out_ch:
-      self.shortcut = nn.Sequential(
-        nn.Conv2d(in_ch, out_ch, kernel_size =1, stride = stride, padding = 0, bias = False),
-        nn.BatchNorm2d(out_ch),
-      )
-    else :
-      self.shortcut = nn.Identity()
+      # Pre-activation shortcut convention: project the *pre-activated* tensor.
+      # (Keeping this as a plain conv avoids an extra BN on the residual path.)
+      self.shortcut = nn.Conv2d(in_ch, out_ch, kernel_size=1, stride=stride, padding=0, bias=False)
+    else:
+      self.shortcut = None
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:
-    out = self.batchnorm1(x)
-    out = F.relu(out, inplace=True)
-    out = self.conv1(out)
+    pre = F.relu(self.batchnorm1(x), inplace=True)
+    out = self.conv1(pre)
 
     out = self.batchnorm2(out)
     out = F.relu(out, inplace=True)
     out = self.conv2(out)
 
-    out = out + self.shortcut(x)
+    shortcut = self.shortcut(pre) if self.shortcut is not None else x
+    out = out + shortcut
     return out
 
 class TestCandidate0(nn.Module):
@@ -71,6 +70,8 @@ class TestCandidate0(nn.Module):
           BasicBlock(c3,c3,1)
         )
 
+        # Final BN+ReLU before global average pooling (common in pre-activation ResNets).
+        self.final_bn = nn.BatchNorm2d(c3)
         self.dropout = nn.Dropout(p=0.1)
         self.fc = nn.Linear(c3, num_classes)
 
@@ -79,6 +80,7 @@ class TestCandidate0(nn.Module):
         x = self.stage1(x)
         x = self.stage2(x)
         x = self.stage3(x)
+        x = F.relu(self.final_bn(x), inplace=True)
         x = x.mean(dim=(2, 3))
         x = self.dropout(x)
         return self.fc(x)
