@@ -81,3 +81,9 @@ CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/train.py \
   --mixup-alpha 0.2 --cutmix-alpha 1.0 \
   --ema-decay 0.999 \
   --label-smoothing 0.0
+
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/advanced_train.py \
+  --model test_candidate_cuda0 \
+  --dataset cifar10 \
+  --steps 200000 \
+  --resume models/test_candidate_cuda0_cifar10/checkpoints/step_80000.pt
