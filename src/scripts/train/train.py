@@ -352,6 +352,7 @@ def main() -> None:
     if final_test_acc > best_acc:
         best_acc = final_test_acc
     print(
+        f"model={cfg.model} "
         f"final eval step {global_step}  "
         f"test_loss={final_test_loss:.4f} test_acc={final_test_acc:.4f}  "
         f"best_acc={best_acc:.4f}  time={dt:.1f}s"
