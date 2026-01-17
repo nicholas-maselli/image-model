@@ -16,7 +16,7 @@ import torch
 import torch.nn.functional as F
 
 from data import Cifar10DataConfig, make_cifar10_loaders
-from models import MicroCNN, MilliCNN, StandardCNN, KiloCNN, TestCandidate0, TestCandidate1
+from models import MicroCNN, MilliCNN, StandardCNN, KiloCNN, TestCandidate0
 
 
 # -------------------------
