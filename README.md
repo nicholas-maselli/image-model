@@ -96,3 +96,6 @@ CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/advanced_train.py \
   --mixup-alpha 0.2 --cutmix-alpha 1.0 \
   --ema-decay 0.999 \
   --label-smoothing 0.0
+
+# Training Nano VIT
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/train.py --dataset cifar10 --model nano_vit --steps 50000
