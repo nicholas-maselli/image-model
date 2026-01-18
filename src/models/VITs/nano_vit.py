@@ -1,19 +1,18 @@
-import math
 import torch
 import torch.nn as nn
 
 class MLP(nn.Module):
-    def __init__(self, dim: int, dim_hidden: int, drop: float = 0.1):
+    def __init__(self, dim: int, hidden_dim: int, drop: float = 0.1):
         super().__init__()
         self.activation = nn.GELU()
         
-        self.mlp_expand = nn.Linear(dim, dim_hidden)
-        self.mlp_contract = nn.Linear(dim_hidden, dim)
+        self.mlp_expand = nn.Linear(dim, hidden_dim)
+        self.mlp_contract = nn.Linear(hidden_dim, dim)
 
         self.dropout1 = nn.Dropout(drop)
         self.dropout2 = nn.Dropout(drop)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.mlp_expand(x)
         x = self.activation(x)
         x = self.dropout1(x)
@@ -46,7 +45,7 @@ class EncoderBlock(nn.Module):
         
         self.drop_path = nn.Dropout(proj_drop)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, T, D)
         x_norm1 = self.norm1(x)
         attn_out, _ = self.attn(x_norm1, x_norm1, x_norm1, need_weights=False)
@@ -62,28 +61,28 @@ class NanoViT(nn.Module):
     def __init__(
         self,
         num_classes: int = 10,
-        image_size: int = 10,
+        image_size: int = 32,
         patch_size: int = 4,
         dim: int = 128,
         depth: int = 4,
         num_heads: int = 4,
         mlp_ratio: float = 4.0,
         drop: float = 0.0,
-        attn_drop: float = 0.0
+        attn_drop: float = 0.0,
     ):
-        super.__init__()
+        super().__init__()
         if image_size % patch_size != 0:
-            raise ValueError("image")
+            raise ValueError("image_size must be divisible by patch_size")
 
         self.image_size = image_size
         self.patch_size = patch_size
         grid = image_size // patch_size
         num_patches = grid * grid
 
-        # Patchify + linear embed in one step (conv with stripe=patch_size)
+        # Patchify + linear embed in one step (conv with stride=patch_size)
         self.patch_embed = nn.Conv2d(
             in_channels=3,
-            out_channels=8,
+            out_channels=dim,
             kernel_size=patch_size,
             stride=patch_size,
             bias=True
@@ -93,15 +92,16 @@ class NanoViT(nn.Module):
         self.pos_embed = nn.Parameter(torch.zeros(1, 1 + num_patches, dim))
         self.pos_drop = nn.Dropout(drop)
 
-        self.blocks == nn.ModuleList(
+        self.blocks = nn.ModuleList(
             [
                 EncoderBlock(
                     dim=dim, 
                     num_heads=num_heads, 
                     mlp_ratio=mlp_ratio, 
                     attn_drop=attn_drop, 
-                    proj_drop=drop) 
-                    for _ in range(depth)
+                    proj_drop=drop
+                ) 
+                for _ in range(depth)
             ]
         )
 
@@ -110,7 +110,7 @@ class NanoViT(nn.Module):
 
         self._init_weights()
 
-    def _init_weights(self):
+    def _init_weights(self) -> None:
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
         nn.init.trunc_normal_(self.cls_token, std=0.02)
         for m in self.modules():
@@ -121,6 +121,10 @@ class NanoViT(nn.Module):
             elif isinstance(m, nn.LayerNorm):
                 nn.init.ones_(m.weight)
                 nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Patch embed: (B, 3, H, W) -> (B, D, H/P, W/P)

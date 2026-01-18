@@ -5,4 +5,4 @@ from .CNNs.kilo_cnn import KiloCNN
 from .VITs.nano_vit import NanoViT
 from .CNNs.test_candidate_cuda0 import TestCandidate0
 
-__all__ = ["MicroCNN", "MilliCNN", "StandardCNN", "KiloCNN", "NanoViT" "TestCandidate0"]
+__all__ = ["MicroCNN", "MilliCNN", "StandardCNN", "KiloCNN", "NanoViT", "TestCandidate0"]
