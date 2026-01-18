@@ -98,4 +98,4 @@ CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/advanced_train.py \
   --label-smoothing 0.0
 
 # Training Nano VIT
-CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/train.py --dataset cifar10 --model nano_vit --steps 50000
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py --model nano_vit --dataset cifar10 --steps 50000
