@@ -100,10 +100,47 @@ CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/advanced_train.py \
 # Training Nano VIT
 CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py --model nano_vit --dataset cifar10 --steps 50000
 
-CUDA_VISIBLE_DEVICES=1 uv run python src/scripts/train/vit/train.py --model nano_vit --dataset cifar10 --steps 50000
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py --model micro_vit --dataset cifar10 --steps 50000
+
+
+-- Larger Memory GPU
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py --model micro_vit --dataset cifar10 --batch-size 1024 --steps 50000
+
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py --model micro_vit --dataset cifar10 --steps 10000 --log-freq 100
+
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py --model micro_vit --dataset cifar10 --batch-size 128 --steps 100 --log-freq 1
+
+
+------ Num Workers attempt to leverage H200
+
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py \
+  --model micro_vit --dataset cifar10 --steps 10000 --log-freq 100 \
+  --batch-size 256 \
+  --num-workers 8
+
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py \
+  --model micro_vit --dataset cifar10 --steps 50000 --log-freq 100 \
+  --batch-size 128 \
+  --num-workers 12
+
+# Training Mini VIT
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py \
+  --model mini_vit --dataset cifar10 --steps 50000 --log-freq 100 \
+  --batch-size 128 \
+  --num-workers 12
+
+PYTHONPATH=src CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py \
+  --model mini_vit --dataset cifar10 --steps 100 --log-freq 1 \
+  --batch-size 8 \
+  --num-workers 8
 
 
 
 ---- Food dataset:
 
 PYTHONPATH=src uv run python src/scripts/train/vit/train.py --model micro_vit --dataset food101 --steps 100 --log-freq 1
+
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py \
+  --model micro_vit --dataset food101 --steps 10000 --log-freq 100 \
+  --batch-size 8 \
+  --num-workers 12
