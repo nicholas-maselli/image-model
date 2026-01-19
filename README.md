@@ -134,6 +134,17 @@ PYTHONPATH=src CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.
   --batch-size 8 \
   --num-workers 8
 
+  # Training Standard VIT
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py \
+  --model standard_vit --dataset cifar10 --steps 50000 --log-freq 100 \
+  --batch-size 128 \
+  --num-workers 12
+
+PYTHONPATH=src CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py \
+  --model standard_vit --dataset cifar10 --steps 100 --log-freq 1 \
+  --batch-size 8 \
+  --num-workers 8
+
 
 
 ---- Food dataset:

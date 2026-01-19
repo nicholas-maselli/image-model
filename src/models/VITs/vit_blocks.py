@@ -117,3 +117,67 @@ class EncoderBlock(nn.Module):
         x = x + self.drop_path2(self.mlp(self.norm2(x)))
         return x
 
+class EncoderBlockLS(nn.Module):
+    def __init__(self, *, dim: int, num_heads: int, mlp_ratio: float = 4.0, drop: float = 0.0, attn_drop: float = 0.0, drop_path: float = 0.0):
+        super().__init__()
+
+        self.norm1 = nn.LayerNorm(dim)
+
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x
+
+import torch
+import torch.nn as nn
+
+from .vit_blocks import SDPA, MLP, DropPath
+
+
+def _make_gn(channels: int, max_groups: int = 32) -> nn.GroupNorm:
+    g = min(max_groups, channels)
+    while g > 1 and (channels % g) != 0:
+        g //= 2
+    return nn.GroupNorm(g, channels)
+
+
+class EncoderBlockLS(nn.Module):
+    """Pre-norm Transformer block + optional LayerScale (helps stability when scaling depth)."""
+
+    def __init__(
+        self,
+        *,
+        dim: int,
+        num_heads: int,
+        mlp_ratio: float = 4.0,
+        drop: float = 0.0,
+        attn_drop: float = 0.0,
+        drop_path: float = 0.0,
+        layer_scale_init: float = 0.0,  # set ~1e-5 to enable
+    ) -> None:
+        super().__init__()
+        self.norm1 = nn.LayerNorm(dim)
+        self.attn = SDPA(dim=dim, num_heads=num_heads, attn_drop=attn_drop, proj_drop=drop)
+        self.drop_path1 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+
+        self.norm2 = nn.LayerNorm(dim)
+        self.mlp = MLP(dim=dim, hidden_dim=int(dim * mlp_ratio), drop=drop)
+        self.drop_path2 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+
+        if layer_scale_init and layer_scale_init > 0.0:
+            self.gamma1 = nn.Parameter(torch.ones(dim) * float(layer_scale_init))
+            self.gamma2 = nn.Parameter(torch.ones(dim) * float(layer_scale_init))
+        else:
+            self.gamma1 = None
+            self.gamma2 = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        a = self.attn(self.norm1(x))
+        if self.gamma1 is not None:
+            a = a * self.gamma1
+        x = x + self.drop_path1(a)
+
+        m = self.mlp(self.norm2(x))
+        if self.gamma2 is not None:
+            m = m * self.gamma2
+        x = x + self.drop_path2(m)
+        return x

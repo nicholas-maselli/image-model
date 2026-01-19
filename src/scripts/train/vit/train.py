@@ -18,7 +18,7 @@ import torch
 import torch.nn.functional as F
 
 from data import Cifar10DataConfig, Food101DataConfig, make_cifar10_loaders, make_food101_loaders
-from models.VITs import MicroViT, NanoViT, MiniViT
+from models.VITs import MicroViT, NanoViT, MiniViT, StandardViT
 
 
 # -------------------------
@@ -57,6 +57,7 @@ MODELS: dict[str, type[torch.nn.Module]] = {
     "nano_vit": NanoViT,
     "micro_vit": MicroViT,
     "mini_vit": MiniViT,
+    "standard_vit": StandardViT,
 }
 
 
