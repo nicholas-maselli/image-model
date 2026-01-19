@@ -45,7 +45,7 @@ MODELS: dict[str, type[torch.nn.Module]] = {
 }
 
 
-def resolve_model_factory(model: str) -> ModelFactory:
+def resolve_model_factory(model: str, model_kwargs: dict) -> ModelFactory:
     """
     Resolve a model spec to a factory returning nn.Module.
 
@@ -55,7 +55,7 @@ def resolve_model_factory(model: str) -> ModelFactory:
     """
     if model in MODELS:
         cls = MODELS[model]
-        return lambda: _instantiate_model(cls)
+        return lambda: _instantiate_model(cls, **model_kwargs)
 
     if ":" in model:
         module_name, class_name = model.split(":", 1)
@@ -63,17 +63,21 @@ def resolve_model_factory(model: str) -> ModelFactory:
         cls = getattr(mod, class_name)
         if not isinstance(cls, type) or not issubclass(cls, torch.nn.Module):
             raise SystemExit(f"--model {model} is not a torch.nn.Module subclass")
-        return lambda: _instantiate_model(cls)
+        return lambda: _instantiate_model(cls, **model_kwargs)
 
     raise SystemExit(f"Unknown --model '{model}'. Options: {', '.join(sorted(MODELS))} or 'module:ClassName'.")
 
 
-def _instantiate_model(cls: type[torch.nn.Module]) -> torch.nn.Module:
-    # Convention: pass num_classes=10 if supported; otherwise call with no args.
+def _instantiate_model(cls: type[torch.nn.Module], **kwargs) -> torch.nn.Module:
+    """
+    Instantiate a model class, passing through supported kwargs.
+    Convention: pass num_classes=10 if supported.
+    """
     sig = inspect.signature(cls.__init__)
-    if "num_classes" in sig.parameters:
-        return cls(num_classes=10)  # type: ignore[call-arg]
-    return cls()  # type: ignore[call-arg]
+    supported = {k: v for k, v in kwargs.items() if (k in sig.parameters and v is not None)}
+    if "num_classes" in sig.parameters and "num_classes" not in supported:
+        supported["num_classes"] = 10
+    return cls(**supported)  # type: ignore[call-arg]
 
 
 # -------------------------
@@ -258,6 +262,18 @@ def main() -> None:
     p.add_argument("--no-amp", action="store_true")
     p.add_argument("--compile", action="store_true", help="Use torch.compile if available (PyTorch 2.x).")
 
+    # Model hyperparams (passed to model __init__ if supported)
+    p.add_argument("--image-size", type=int, default=None)
+    p.add_argument("--patch-size", type=int, default=None)
+    p.add_argument("--dim", type=int, default=None)
+    p.add_argument("--depth", type=int, default=None)
+    p.add_argument("--num-heads", type=int, default=None)
+    p.add_argument("--mlp-ratio", type=float, default=None)
+    p.add_argument("--drop", type=float, default=None)
+    p.add_argument("--attn-drop", type=float, default=None)
+    p.add_argument("--drop-path-rate", type=float, default=None)
+    p.add_argument("--pool", type=str, default=None, help="If supported: 'cls' or 'mean'")
+
     # AdamW
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--min-lr", type=float, default=1e-6)
@@ -337,8 +353,21 @@ def main() -> None:
         f"num_workers={cfg.num_workers} seed={cfg.seed} amp={cfg.amp} data_root={cfg.data_root}"
     )
 
+    model_kwargs = {
+        "image_size": getattr(args, "image_size", None),
+        "patch_size": getattr(args, "patch_size", None),
+        "dim": getattr(args, "dim", None),
+        "depth": getattr(args, "depth", None),
+        "num_heads": getattr(args, "num_heads", None),
+        "mlp_ratio": getattr(args, "mlp_ratio", None),
+        "drop": getattr(args, "drop", None),
+        "attn_drop": getattr(args, "attn_drop", None),
+        "drop_path_rate": getattr(args, "drop_path_rate", None),
+        "pool": getattr(args, "pool", None),
+    }
+
     train_loader, test_loader = DATASETS[args.dataset](args)
-    model_factory = resolve_model_factory(args.model)
+    model_factory = resolve_model_factory(args.model, model_kwargs=model_kwargs)
     model = model_factory().to(device)
 
     if bool(args.compile) and hasattr(torch, "compile"):

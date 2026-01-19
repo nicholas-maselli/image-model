@@ -99,3 +99,5 @@ CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/advanced_train.py \
 
 # Training Nano VIT
 CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py --model nano_vit --dataset cifar10 --steps 50000
+
+CUDA_VISIBLE_DEVICES=1 uv run python src/scripts/train/vit/train.py --model nano_vit --dataset cifar10 --steps 50000

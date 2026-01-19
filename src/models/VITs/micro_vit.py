@@ -1,74 +1,23 @@
 import torch
 import torch.nn as nn
 
-class MLP(nn.Module):
-    def __init__(self, dim: int, hidden_dim: int, drop: float = 0.1):
-        super().__init__()
-        self.activation = nn.GELU()
-        
-        self.mlp_expand = nn.Linear(dim, hidden_dim)
-        self.mlp_contract = nn.Linear(hidden_dim, dim)
-
-        self.dropout1 = nn.Dropout(drop)
-        self.dropout2 = nn.Dropout(drop)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.mlp_expand(x)
-        x = self.activation(x)
-        x = self.dropout1(x)
-
-        x = self.mlp_contract(x)
-        x = self.dropout2(x)
-
-        return x
-
-class EncoderBlock(nn.Module):
-    def __init__(
-        self,
-        dim: int,
-        num_heads: int,
-        mlp_ratio: float = 4.0,
-        attn_drop: float = 0.0,
-        proj_drop: float = 0.0
-    ):
-        super().__init__()
-        self.attn = nn.MultiheadAttention(
-            embed_dim=dim,
-            num_heads=num_heads,
-            dropout=attn_drop,
-            batch_first=True,
-        )
-        self.mlp = MLP(dim=dim, hidden_dim=int(dim * mlp_ratio), drop=proj_drop)
-        
-        self.norm1 = nn.LayerNorm(dim)
-        self.norm2 = nn.LayerNorm(dim)
-        
-        self.drop_path = nn.Dropout(proj_drop)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (B, T, D)
-        x_norm1 = self.norm1(x)
-        attn_out, _ = self.attn(x_norm1, x_norm1, x_norm1, need_weights=False)
-        x = x + self.drop_path(attn_out)
-
-
-        x_norm2 = self.norm2(x)
-        mlp_out = self.mlp(x_norm2)
-        x = x + self.drop_path(mlp_out)
-        return x
+from .vit_blocks import EncoderBlock
 
 class MicroViT(nn.Module):
     def __init__(
         self,
         num_classes: int = 10,
         image_size: int = 32,
-        patch_size: int = 2,
-        dim: int = 128,
-        depth: int = 4,
-        num_heads: int = 4,
+        # ViT-on-CIFAR-10 defaults (faster + usually higher accuracy than patch_size=2).
+        patch_size: int = 4,
+        dim: int = 192,
+        depth: int = 6,
+        num_heads: int = 3,
         mlp_ratio: float = 4.0,
         drop: float = 0.0,
         attn_drop: float = 0.0,
+        drop_path_rate: float = 0.1,
+        pool: str = "mean",  # "cls" | "mean"
     ):
         super().__init__()
         if image_size % patch_size != 0:
@@ -78,6 +27,7 @@ class MicroViT(nn.Module):
         self.patch_size = patch_size
         grid = image_size // patch_size
         num_patches = grid * grid
+        self.pool = pool
 
         # Patchify + linear embed in one step (conv with stride=patch_size)
         self.patch_embed = nn.Conv2d(
@@ -87,11 +37,13 @@ class MicroViT(nn.Module):
             stride=patch_size,
             bias=True
         )
+        self.patch_norm = nn.LayerNorm(dim)
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, dim))
         self.pos_embed = nn.Parameter(torch.zeros(1, 1 + num_patches, dim))
         self.pos_drop = nn.Dropout(drop)
 
+        dpr = torch.linspace(0, float(drop_path_rate), steps=depth).tolist()
         self.blocks = nn.ModuleList(
             [
                 EncoderBlock(
@@ -99,9 +51,10 @@ class MicroViT(nn.Module):
                     num_heads=num_heads, 
                     mlp_ratio=mlp_ratio, 
                     attn_drop=attn_drop, 
-                    proj_drop=drop
+                    drop=drop,
+                    drop_path=float(dpr[i]),
                 ) 
-                for _ in range(depth)
+                for i in range(depth)
             ]
         )
 
@@ -132,6 +85,7 @@ class MicroViT(nn.Module):
 
         # Flatten to tokens: (B, D, H/P, W/P) -> (B, T, D)
         x = x.flatten(2).transpose(1, 2)
+        x = self.patch_norm(x)
 
         B, T, D = x.shape
         cls = self.cls_token.expand(B, -1, -1)
@@ -144,5 +98,8 @@ class MicroViT(nn.Module):
             x = block(x)
 
         x = self.norm(x)
-        cls_out = x[:, 0] # CLS token
-        return self.head(cls_out)
+        if self.pool == "mean":
+            feat = x[:, 1:].mean(dim=1)
+        else:
+            feat = x[:, 0]  # CLS token
+        return self.head(feat)
