@@ -117,22 +117,6 @@ class EncoderBlock(nn.Module):
         x = x + self.drop_path2(self.mlp(self.norm2(x)))
         return x
 
-class EncoderBlockLS(nn.Module):
-    def __init__(self, *, dim: int, num_heads: int, mlp_ratio: float = 4.0, drop: float = 0.0, attn_drop: float = 0.0, drop_path: float = 0.0):
-        super().__init__()
-
-        self.norm1 = nn.LayerNorm(dim)
-
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x
-
-import torch
-import torch.nn as nn
-
-from .vit_blocks import SDPA, MLP, DropPath
-
-
 def _make_gn(channels: int, max_groups: int = 32) -> nn.GroupNorm:
     g = min(max_groups, channels)
     while g > 1 and (channels % g) != 0:

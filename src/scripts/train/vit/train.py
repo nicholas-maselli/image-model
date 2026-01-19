@@ -18,7 +18,7 @@ import torch
 import torch.nn.functional as F
 
 from data import Cifar10DataConfig, Food101DataConfig, make_cifar10_loaders, make_food101_loaders
-from models.VITs import MicroViT, NanoViT, MiniViT, StandardViT
+from models.VITs import MicroViT, NanoViT, MiniViT, StandardViT, KiloViT
 
 
 # -------------------------
@@ -58,6 +58,7 @@ MODELS: dict[str, type[torch.nn.Module]] = {
     "micro_vit": MicroViT,
     "mini_vit": MiniViT,
     "standard_vit": StandardViT,
+    "kilo_vit": KiloViT,
 }
 
 
@@ -253,6 +254,10 @@ class TrainConfig:
     cutmix_alpha: float = 1.0
     ema_decay: float = 0.9999
     grad_clip: float = 1.0  # 0 disables
+    # Turn off MixUp/CutMix for the last N steps (often helps final top-1)
+    mix_off_steps: int = 0
+    # If True, evaluate both raw model and EMA (if EMA is enabled)
+    eval_both: bool = False
 
 
 def main() -> None:
@@ -305,6 +310,12 @@ def main() -> None:
     p.add_argument("--cutmix-alpha", type=float, default=1.0)
     p.add_argument("--ema-decay", type=float, default=0.9999)
     p.add_argument("--grad-clip", type=float, default=1.0, help="Max grad norm; 0 disables.")
+    p.add_argument("--mix-off-steps", type=int, default=0, help="Disable MixUp/CutMix for the last N steps.")
+    p.add_argument(
+        "--eval-both",
+        action="store_true",
+        help="Evaluate both raw model and EMA model (if EMA enabled).",
+    )
 
     args = p.parse_args()
 
@@ -357,6 +368,8 @@ def main() -> None:
         cutmix_alpha=float(args.cutmix_alpha),
         ema_decay=float(args.ema_decay),
         grad_clip=float(args.grad_clip),
+        mix_off_steps=int(args.mix_off_steps),
+        eval_both=bool(args.eval_both),
     )
 
     print(
@@ -464,7 +477,7 @@ def main() -> None:
 
     # Running stats for logging (over last log window)
     win_loss_sum = 0.0
-    win_correct = 0
+    win_correct = 0.0
     win_total = 0
     win_steps = 0
     t_window0 = time.time()
@@ -481,7 +494,10 @@ def main() -> None:
         # MixUp / CutMix (optional)
         mixup_alpha = float(cfg.mixup_alpha)
         cutmix_alpha = float(cfg.cutmix_alpha)
-        do_mix = (mixup_alpha > 0.0) or (cutmix_alpha > 0.0)
+        # Optional: turn off MixUp/CutMix for the last N steps.
+        mix_off_steps = int(cfg.mix_off_steps)
+        mixing_allowed = (mix_off_steps <= 0) or (global_step <= (total_steps - mix_off_steps))
+        do_mix = mixing_allowed and ((mixup_alpha > 0.0) or (cutmix_alpha > 0.0))
         y_a = y
         y_b = y
         lam = 1.0
@@ -546,7 +562,15 @@ def main() -> None:
         bs = x.size(0)
         win_total += bs
         win_loss_sum += float(loss.item()) * bs
-        win_correct += int((logits.argmax(1) == y).sum().item())
+        pred = logits.argmax(1)
+        if do_mix:
+            # "Soft"/expected accuracy under MixUp/CutMix:
+            # correct = lam * 1[pred==y_a] + (1-lam) * 1[pred==y_b]
+            win_correct += float((pred == y_a).float().sum().item()) * lam + float((pred == y_b).float().sum().item()) * (
+                1.0 - lam
+            )
+        else:
+            win_correct += float((pred == y).float().sum().item())
         win_steps += 1
 
         if cfg.log_freq > 0 and (global_step % cfg.log_freq == 0):
@@ -562,23 +586,36 @@ def main() -> None:
                 f"steps/s={steps_per_s:.1f}"
             )
             win_loss_sum = 0.0
-            win_correct = 0
+            win_correct = 0.0
             win_total = 0
             win_steps = 0
             t_window0 = time.time()
 
         if cfg.eval_freq > 0 and (global_step % cfg.eval_freq == 0):
             t0 = time.time()
-            eval_model = ema_model if ema_model is not None else model
-            test_loss, test_acc = evaluate(eval_model, test_loader, device)
+            ema_loss = None
+            ema_acc = None
+            if ema_model is not None:
+                ema_loss, ema_acc = evaluate(ema_model, test_loader, device)
+
+            raw_loss = None
+            raw_acc = None
+            if bool(cfg.eval_both) or (ema_model is None):
+                raw_loss, raw_acc = evaluate(model, test_loader, device)
+
             dt = time.time() - t0
-            if test_acc > best_acc:
-                best_acc = test_acc
-            print(
-                f"eval step {global_step}  "
-                f"test_loss={test_loss:.4f} test_acc={test_acc:.4f}  "
-                f"best_acc={best_acc:.4f}  time={dt:.1f}s"
-            )
+
+            tracked_acc = ema_acc if ema_acc is not None else raw_acc
+            if tracked_acc is not None and tracked_acc > best_acc:
+                best_acc = tracked_acc
+
+            parts: list[str] = [f"eval step {global_step}"]
+            if raw_acc is not None and raw_loss is not None:
+                parts.append(f"raw_loss={raw_loss:.4f} raw_acc={raw_acc:.4f}")
+            if ema_acc is not None and ema_loss is not None:
+                parts.append(f"ema_loss={ema_loss:.4f} ema_acc={ema_acc:.4f}")
+            parts.append(f"best_acc={best_acc:.4f} time={dt:.1f}s")
+            print("  ".join(parts))
 
         if cfg.save_freq > 0 and (global_step % cfg.save_freq == 0):
             save_checkpoint(
@@ -593,20 +630,27 @@ def main() -> None:
 
     # Final eval + checkpoint
     t0 = time.time()
-    eval_model = ema_model if ema_model is not None else model
-    final_test_loss, final_test_acc = evaluate(eval_model, test_loader, device)
+    # Report both raw and EMA (if present) at the end.
+    final_raw_loss, final_raw_acc = evaluate(model, test_loader, device)
+    final_ema_loss, final_ema_acc = (None, None)
+    if ema_model is not None:
+        final_ema_loss, final_ema_acc = evaluate(ema_model, test_loader, device)
     dt = time.time() - t0
-    if final_test_acc > best_acc:
-        best_acc = final_test_acc
+    final_tracked_acc = final_ema_acc if final_ema_acc is not None else final_raw_acc
+    if final_tracked_acc > best_acc:
+        best_acc = final_tracked_acc
 
     lr_now = optimizer.param_groups[0]["lr"]
-    print(
-        f"model={cfg.model} "
-        f"final eval step {global_step}  "
-        f"lr={lr_now:.6f} "
-        f"test_loss={final_test_loss:.4f} test_acc={final_test_acc:.4f}  "
-        f"best_acc={best_acc:.4f}  time={dt:.1f}s"
-    )
+    parts: list[str] = [
+        f"model={cfg.model}",
+        f"final eval step {global_step}",
+        f"lr={lr_now:.6f}",
+        f"raw_loss={final_raw_loss:.4f} raw_acc={final_raw_acc:.4f}",
+    ]
+    if final_ema_acc is not None and final_ema_loss is not None:
+        parts.append(f"ema_loss={final_ema_loss:.4f} ema_acc={final_ema_acc:.4f}")
+    parts.append(f"best_acc={best_acc:.4f} time={dt:.1f}s")
+    print("  ".join(parts))
 
     save_checkpoint(
         out_dir=out_dir,

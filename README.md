@@ -134,7 +134,7 @@ PYTHONPATH=src CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.
   --batch-size 8 \
   --num-workers 8
 
-  # Training Standard VIT
+# Training Standard VIT
 CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py \
   --model standard_vit --dataset cifar10 --steps 50000 --log-freq 100 \
   --batch-size 128 \
@@ -144,6 +144,21 @@ PYTHONPATH=src CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.
   --model standard_vit --dataset cifar10 --steps 100 --log-freq 1 \
   --batch-size 8 \
   --num-workers 8
+
+# Training Kilo VIT
+CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py \
+  --model kilo_vit --dataset cifar10 \
+  --steps 50000 --batch-size 128 --num-workers 12 \
+  --lr 6e-4 --warmup-steps 2000 \
+  --label-smoothing 0.05 --mixup-alpha 0.1 --cutmix-alpha 0.5 \
+  --mix-off-steps 5000 --eval-both \
+  --log-freq 100 --eval-freq 1000
+
+PYTHONPATH=src CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py \
+  --model kilo_vit --dataset cifar10 --steps 100 --log-freq 1 \
+  --batch-size 8 \
+  --num-workers 8 \
+  --eval-both
 
 
 
