@@ -75,7 +75,7 @@ model=test_candidate_cuda0 final eval step 50000  lr=0.000000 test_loss=0.2309 t
 
 # Training SGD And other improvements 100k
 CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/advanced_train.py \
-  --dataset cifar10 
+  --dataset cifar10
   --model test_candidate_cuda0 \
   --steps 200000 \
   --opt sgd \
@@ -101,3 +101,9 @@ CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/advanced_train.py \
 CUDA_VISIBLE_DEVICES=0 uv run python src/scripts/train/vit/train.py --model nano_vit --dataset cifar10 --steps 50000
 
 CUDA_VISIBLE_DEVICES=1 uv run python src/scripts/train/vit/train.py --model nano_vit --dataset cifar10 --steps 50000
+
+
+
+---- Food dataset:
+
+PYTHONPATH=src uv run python src/scripts/train/vit/train.py --model micro_vit --dataset food101 --steps 100 --log-freq 1

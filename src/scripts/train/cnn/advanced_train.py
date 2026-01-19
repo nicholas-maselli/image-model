@@ -17,7 +17,7 @@ import math
 import torch
 import torch.nn.functional as F
 
-from data import Cifar10DataConfig, make_cifar10_loaders
+from data import Cifar10DataConfig, Food101DataConfig, make_cifar10_loaders, make_food101_loaders
 from models import MicroCNN, MilliCNN, StandardCNN, KiloCNN, TestCandidate0
 
 
@@ -28,6 +28,11 @@ from models import MicroCNN, MilliCNN, StandardCNN, KiloCNN, TestCandidate0
 DatasetFactory = Callable[[argparse.Namespace], tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]]
 ModelFactory = Callable[[], torch.nn.Module]
 
+DATASET_SPECS: dict[str, dict[str, int]] = {
+    "cifar10": {"num_classes": 10},
+    "food101": {"num_classes": 101},
+}
+
 DATASETS: dict[str, DatasetFactory] = {
     "cifar10": lambda args: make_cifar10_loaders(
         Cifar10DataConfig(
@@ -35,6 +40,15 @@ DATASETS: dict[str, DatasetFactory] = {
             batch_size=args.batch_size,
             num_workers=args.num_workers,
             download=args.download,
+        )
+    ),
+    "food101": lambda args: make_food101_loaders(
+        Food101DataConfig(
+            data_root=args.data_root,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            download=args.download,
+            image_size=224,
         )
     ),
 }
@@ -48,7 +62,7 @@ MODELS: dict[str, type[torch.nn.Module]] = {
 }
 
 
-def resolve_model_factory(model: str) -> ModelFactory:
+def resolve_model_factory(model: str, *, num_classes: int) -> ModelFactory:
     """
     Resolve a model spec to a factory returning nn.Module.
 
@@ -58,7 +72,7 @@ def resolve_model_factory(model: str) -> ModelFactory:
     """
     if model in MODELS:
         cls = MODELS[model]
-        return lambda: _instantiate_model(cls)
+        return lambda: _instantiate_model(cls, num_classes=num_classes)
 
     if ":" in model:
         module_name, class_name = model.split(":", 1)
@@ -66,16 +80,16 @@ def resolve_model_factory(model: str) -> ModelFactory:
         cls = getattr(mod, class_name)
         if not isinstance(cls, type) or not issubclass(cls, torch.nn.Module):
             raise SystemExit(f"--model {model} is not a torch.nn.Module subclass")
-        return lambda: _instantiate_model(cls)
+        return lambda: _instantiate_model(cls, num_classes=num_classes)
 
     raise SystemExit(f"Unknown --model '{model}'. Options: {', '.join(sorted(MODELS))} or 'module:ClassName'.")
 
 
-def _instantiate_model(cls: type[torch.nn.Module]) -> torch.nn.Module:
-    # Convention: pass num_classes=10 if supported; otherwise call with no args.
+def _instantiate_model(cls: type[torch.nn.Module], *, num_classes: int) -> torch.nn.Module:
+    # Convention: pass num_classes if supported; otherwise call with no args.
     sig = inspect.signature(cls.__init__)
     if "num_classes" in sig.parameters:
-        return cls(num_classes=10)  # type: ignore[call-arg]
+        return cls(num_classes=num_classes)  # type: ignore[call-arg]
     return cls()  # type: ignore[call-arg]
 
 
@@ -311,7 +325,8 @@ def main() -> None:
     )
 
     train_loader, test_loader = DATASETS[args.dataset](args)
-    model_factory = resolve_model_factory(args.model)
+    num_classes = int(DATASET_SPECS[args.dataset]["num_classes"])
+    model_factory = resolve_model_factory(args.model, num_classes=num_classes)
     model = model_factory().to(device)
     ema_model: torch.nn.Module | None = None
     if float(args.ema_decay) > 0.0:

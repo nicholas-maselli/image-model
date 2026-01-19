@@ -17,7 +17,7 @@ import math
 import torch
 import torch.nn.functional as F
 
-from data import Cifar10DataConfig, make_cifar10_loaders
+from data import Cifar10DataConfig, Food101DataConfig, make_cifar10_loaders, make_food101_loaders
 from models.VITs import MicroViT, NanoViT
 
 
@@ -28,6 +28,11 @@ from models.VITs import MicroViT, NanoViT
 DatasetFactory = Callable[[argparse.Namespace], tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]]
 ModelFactory = Callable[[], torch.nn.Module]
 
+DATASET_SPECS: dict[str, dict[str, int]] = {
+    "cifar10": {"num_classes": 10, "image_size": 32},
+    "food101": {"num_classes": 101, "image_size": 224},
+}
+
 DATASETS: dict[str, DatasetFactory] = {
     "cifar10": lambda args: make_cifar10_loaders(
         Cifar10DataConfig(
@@ -35,6 +40,15 @@ DATASETS: dict[str, DatasetFactory] = {
             batch_size=args.batch_size,
             num_workers=args.num_workers,
             download=args.download,
+        )
+    ),
+    "food101": lambda args: make_food101_loaders(
+        Food101DataConfig(
+            data_root=args.data_root,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            download=args.download,
+            image_size=int(args.image_size or 224),
         )
     ),
 }
@@ -353,6 +367,7 @@ def main() -> None:
         f"num_workers={cfg.num_workers} seed={cfg.seed} amp={cfg.amp} data_root={cfg.data_root}"
     )
 
+    spec = DATASET_SPECS[args.dataset]
     model_kwargs = {
         "image_size": getattr(args, "image_size", None),
         "patch_size": getattr(args, "patch_size", None),
@@ -365,6 +380,10 @@ def main() -> None:
         "drop_path_rate": getattr(args, "drop_path_rate", None),
         "pool": getattr(args, "pool", None),
     }
+    # Ensure the head matches dataset labels and (by default) model pos_embed matches input size.
+    model_kwargs["num_classes"] = int(spec["num_classes"])
+    if model_kwargs.get("image_size") is None:
+        model_kwargs["image_size"] = int(spec["image_size"])
 
     train_loader, test_loader = DATASETS[args.dataset](args)
     model_factory = resolve_model_factory(args.model, model_kwargs=model_kwargs)
